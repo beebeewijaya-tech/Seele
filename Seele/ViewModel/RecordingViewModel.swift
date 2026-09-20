@@ -20,9 +20,13 @@ class RecordingViewModel {
     private(set) var state: RecordingState = .idle
     private var audioManager = AudioManager()
     private var transcriptionManager = TranscriptionManager()
-    private(set) var result = ""
     private(set) var currentText = ""
-    private var inferenceManager: any InferenceProtocol<Inference> = InferenceManager()
+    private(set) var result: [String] = []
+    private var inferenceManager: any InferenceProtocol<Inference>
+    
+    init(inferenceManager: any InferenceProtocol<Inference> = FoundationModelManager()) {
+        self.inferenceManager = inferenceManager
+    }
     
     
     // MARK: - props
@@ -31,6 +35,14 @@ class RecordingViewModel {
     
     // MARK: - Outside function
     
+    var lottieState: LottieState {
+        switch state {
+        case .recording: .hearing
+        case .processing: .loading
+        default: .normal
+        }
+    }
+
     func setState(_ s: RecordingState) {
         self.state = s
     }
@@ -55,6 +67,30 @@ class RecordingViewModel {
     }
     
     
+    func getCurrentOrResultText() -> String {
+        let res = result.joined()
+
+        if res != "" || currentText != "" {
+            return res + currentText
+        }
+        
+        return ""
+    }
+    
+    func inference() async {
+        state = .processing
+        do {
+            let res = result.joined()
+            journal = try await inferenceManager.generate(prompt: res)
+            state = .idle
+            result.removeAll()
+            print(journal)
+        } catch {
+            print(error)
+        }
+    }
+    
+    
     // MARK: - Internal function
     
     private func startRecording() async {
@@ -67,6 +103,7 @@ class RecordingViewModel {
         }
         
         do {
+            try await inferenceManager.prepare()
             try await audioManager.setupAudioSession()
             try transcriptionManager.startTranscription { [weak self] result in
                 guard let self = self else { return }
@@ -74,10 +111,11 @@ class RecordingViewModel {
                 switch result {
                 case .success(let (value, isFinal)):
                     if isFinal {
-                        self.result += value + " "
-                        self.currentText = ""
+                        self.result.append(value + " ")
+                        currentText = ""
+                        state = .idle
                     } else {
-                        self.currentText += value
+                        self.currentText = value
                     }
                 case .failure(let err):
                     state = .error(err.localizedDescription)
@@ -96,14 +134,8 @@ class RecordingViewModel {
     
     
     private func stopRecording() async throws {
-        audioManager.stopAudioStream()
+        try await audioManager.stopAudioStream()
         transcriptionManager.stopTranscription()
-        state = .processing
-        
-        print("Journal running")
-        journal = try await inferenceManager.generate(prompt: result)
         state = .idle
-        print("Done")
-        print(journal)
     }
 }
