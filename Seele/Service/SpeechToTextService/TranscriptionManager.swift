@@ -44,7 +44,41 @@ class TranscriptionManager {
         request = SFSpeechAudioBufferRecognitionRequest()
         request?.shouldReportPartialResults = true
         request?.addsPunctuation = true
-        
+        // Biases recognition toward vocabulary it otherwise mangles. Each entry below
+        // was actually misheard in a real recording — the mishearing is in the comment.
+        request?.contextualStrings = [
+            // project + product names
+            "Seele",
+            "CoreAI"
+            "Core AI",
+            "Qwen",
+            "Lottie",
+            "SwiftUI",
+            "Swift",
+            "Xcode",
+            "Foundation Models",
+            "FoundationModels",
+            "SystemLanguageModel",
+            "LanguageModelSession",
+            "AVFoundation",
+            "SFSpeechRecognizer",
+            "SpeechAnalyzer",
+            "Apple Intelligence",
+            "Neural Engine",
+            "Mac Catalyst",
+            "LLM",
+            "on-device",
+            "inference",
+            "transcription",
+            "speech to text",
+            "guided generation",
+            "Generable",
+            "import error",
+            "memory leak",
+            "simulator",
+            "microcontroller",
+            "ViewModel",
+        ]
         
         self.task = recognizer.recognitionTask(with: request!) { res, err in
             if err != nil {

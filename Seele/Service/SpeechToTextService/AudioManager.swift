@@ -13,12 +13,13 @@ import AVFoundation
 class AudioManager {
     private let audioEngine = AVAudioEngine()
     private var audioTapInstalled = false
+    private var audioSession: AVAudioSession?
     
     
     func setupAudioSession() async throws {
-        let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-        try await audioSession.activate()
+        audioSession = AVAudioSession.sharedInstance()
+        try audioSession?.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try await audioSession?.activate()
     }
     
     
@@ -47,9 +48,10 @@ class AudioManager {
     }
     
     
-    func stopAudioStream() {
+    func stopAudioStream() async throws {
         guard audioTapInstalled else { return }
-        
+    
+        try await audioSession?.deactivate()
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         audioTapInstalled = false
